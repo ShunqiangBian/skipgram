@@ -1,16 +1,17 @@
 import time
 import numpy as np
 import tensorflow as tf
-import random
+# import random
 import pandas as pd
 from collections import Counter
 
 print(tf.__version__)
 
-df=pd.read_csv('data/AutoMaster_Corpus.csv',header=None).rename(columns={0:'text'})
+# 数据加载
+df = pd.read_csv('data/AutoMaster_Corpus.csv', header=None).rename(columns={0: 'text'})
 df.head()
-text=' '.join(df['text'])
-words=text.split(' ')
+text = ' '.join(df['text'])
+words = text.split(' ')
 len(words)
 text[:100]
 
@@ -63,24 +64,24 @@ print("unique words: {}".format(len(set(words))))
 # 对原文本进行vocab到int的转换
 int_words = [vocab_to_int[w] for w in words]
 int_word_counts = Counter(int_words)
-t = 1e-3 # t值
-threshold = 0.7 # 剔除概率阈值
+t = 1e-3  # t值
+threshold = 0.7  # 剔除概率阈值
 
 # 统计单词出现频次
 int_word_counts = Counter(int_words)
 total_count = len(int_words)
 # 计算单词频率
-word_freqs = {w: c/total_count for w, c in int_word_counts.items()}
+word_freqs = {w: c / total_count for w, c in int_word_counts.items()}
 # 计算被删除的概率
 prob_drop = {w: 1 - np.sqrt(t / word_freqs[w]) for w in int_word_counts}
 # 对单词进行采样
 train_words = [w for w in int_words if prob_drop[w] < threshold]
-drop_words=[int_to_vocab[w] for w in int_words if prob_drop[w] > threshold]
+drop_words = [int_to_vocab[w] for w in int_words if prob_drop[w] > threshold]
 set(drop_words)
 len(int_words)
 len(train_words)
-# int_words
 
+# int_words
 def get_targets(words, idx, window_size=5):
     '''
     获得input word的上下文单词列表
@@ -91,12 +92,12 @@ def get_targets(words, idx, window_size=5):
     idx: input word的索引号
     window_size: 窗口大小
     '''
-    target_window = np.random.randint(1, window_size+1)
+    target_window = np.random.randint(1, window_size + 1)
     # 这里要考虑input word前面单词不够的情况
     start_point = idx - target_window if (idx - target_window) > 0 else 0
     end_point = idx + target_window
     # output words(即窗口中的上下文单词)
-    targets = set(words[start_point: idx] + words[idx+1: end_point+1])
+    targets = set(words[start_point: idx] + words[idx + 1: end_point + 1])
     return list(targets)
 
 train_graph = tf.Graph()
@@ -105,7 +106,7 @@ with train_graph.as_default():
     labels = tf.compat.v1.placeholder(tf.int32, shape=[None, None], name='labels')
 
 vocab_size = len(int_to_vocab)
-embedding_size = 300 # 嵌入维度
+embedding_size = 300  # 嵌入维度
 
 with train_graph.as_default():
     # 嵌入层权重矩阵
@@ -155,12 +156,12 @@ with train_graph.as_default():
 
 len(train_words)
 
-epochs = 2 # 迭代轮数
-batch_size = 2000 # batch大小
-window_size = 3 # 窗口大小
+epochs = 2  # 迭代轮数
+batch_size = 2000  # batch大小
+window_size = 3  # 窗口大小
 
 with train_graph.as_default():
-    saver = tf.compat.v1.train.Saver() # 文件存储
+    saver = tf.compat.v1.train.Saver()  # 文件存储
 
 with tf.compat.v1.Session(graph=train_graph) as sess:
     iteration = 1
@@ -168,7 +169,7 @@ with tf.compat.v1.Session(graph=train_graph) as sess:
     # 添加节点用于初始化所有的变量
     sess.run(tf.compat.v1.global_variables_initializer())
 
-    for e in range(1, epochs+1):
+    for e in range(1, epochs + 1):
         # 获得batch数据
         batches = get_batches(train_words, batch_size, window_size)
         start = time.time()
@@ -184,42 +185,47 @@ with tf.compat.v1.Session(graph=train_graph) as sess:
                 end = time.time()
                 print("Epoch {}/{}".format(e, epochs),
                       "Iteration: {}".format(iteration),
-                      "Avg. Training loss: {:.4f}".format(loss/1000),
-                      "{:.4f} sec/batch".format((end-start)/1000))
+                      "Avg. Training loss: {:.4f}".format(loss / 1000),
+                      "{:.4f} sec/batch".format((end - start) / 1000))
                 loss = 0
                 start = time.time()
 
             # 计算相似的词
             if iteration % 1000 == 0:
-                print('*'*100)
+                print('*' * 100)
                 # 计算similarity
                 sim = similarity.eval()
                 for i in range(valid_size):
                     valid_word = int_to_vocab[valid_examples[i]]
-                    top_k = 8 # 取最相似单词的前8个
-                    nearest = (-sim[i, :]).argsort()[1:top_k+1]
+                    top_k = 8  # 取最相似单词的前8个
+                    nearest = (-sim[i, :]).argsort()[1:top_k + 1]
                     log = 'Nearest to [%s]:' % valid_word
                     for k in range(top_k):
                         close_word = int_to_vocab[nearest[k]]
                         log = '%s %s,' % (log, close_word)
                     print(log)
-                print('*'*100)
+                print('*' * 100)
 
             iteration += 1
 
     save_path = saver.save(sess, "checkpoints/text8.ckpt")
     embed_mat = sess.run(normalized_embedding)
 
-import matplotlib
+'''
+结果数据可视化
+'''
+# import matplotlib
 from matplotlib import font_manager
-font=font_manager.FontProperties(fname="TrueType/simhei.ttf")
+
+font = font_manager.FontProperties(fname="TrueType/simhei.ttf")
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
+
 viz_words = 1200
 tsne = TSNE()
 embed_tsne = tsne.fit_transform(embed_mat[:viz_words, :])
 fig, ax = plt.subplots(figsize=(50, 50))
 for idx in range(viz_words):
     plt.scatter(*embed_tsne[idx, :], color='steelblue')
-    plt.annotate(int_to_vocab[idx], (embed_tsne[idx, 0], embed_tsne[idx, 1]), alpha=0.7,fontproperties=font)
+    plt.annotate(int_to_vocab[idx], (embed_tsne[idx, 0], embed_tsne[idx, 1]), alpha=0.7, fontproperties=font)
 fig.savefig('auto_master.png')

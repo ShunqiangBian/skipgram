@@ -1,5 +1,5 @@
-echo "add..."
-git add .
+#echo "add..."
+#git add .
 echo "commit..."
 git commit -m "$1"
 echo "push..."
